@@ -1,0 +1,43 @@
+# once you've gone through processing your fastq files, this is my next step in calling variants in your population
+# you will need BCFtools, SAMtools, gatk, and all their dependencies
+
+# merge bulks into one alignment file
+## the purpose of this step is that I am running bulk segregant QTL analysis via QTL-seq, so we take the individual .bam files we created and merge them based on shared phenotype.
+
+module load SAMtools/1.17-GCC-12.2.0
+
+cd ./PATH/TO/BAM/FILES
+
+## you will need to run the line below for each bulk group you have
+samtools merge -o BULK1.bam FILE1.bam FILE2.bam FILE3.bam FILE4.bam ... 
+samtools index BULK1.bam
+
+samtools merge -o BULK2.bam FILE5.bam FILE6.bam FILE7.bam FILE8.bam ... 
+samtools index BULK2.bam  
+
+# variant calling
+
+module load BCFtools/1.14-GCC-11.2.0
+
+## what do these parameters mean???
+    # -q 30 = sets the minimum mapping quality allowed for a read to be included in the pileup (ranges from 0-60, Phred-scaled). 30 indicates a 99.9% confidence that the read was correctly aligned to the genome. I have it set this high since I want to avoid multi-mapping.
+    # -Q 20 = sets the minimum base quality allowed for a read to be included in the pileup (ranges from 0-40, Phred-scaled). Represents the probablity of a base having been sequenced incorrectly. 20 indicates a 99% confidence that the base call is correct.
+    # --max-BQ 40 = sets the maximum base quality allowed. Since the scale should range from 0-40, this just ensures no bases are incorrectly inflated for whatever reason.
+    # -m = allows for multiallelic calling (i.e. not just biallelic)
+## site information
+    # AD = allelic depth = number of reads present for each allele. Typically comma-separated. E.g AD=10,5 where the reference has 10 reads and the alternate has 5.
+    # DP = depth of coverage = total number of reads covering that site (basically AD for all alleles, summed).
+    # SP = Strand Bias P-value = indicates whether there is strand bias for a certain allele. E.g. if a site has a low strand bias p-value, there is strong evidence that the allele is a systematic/sequencing error rather than a true variant.
+    # GQ = genotype quality = confidence in the assigned genotype for that individual at that site (ranges from 0-99, Phred-scaled). 
+    # GP = genotype posterior probability = the likelihood for all the genotypes at that site for that individual. Typically comma-separated. E.g. GP=0.9,0.1,0.0 where there is a 0.9 probability the individual is homozygous for the reference allele. 
+
+## file after -b should be a simple text file listing the files to be read by mpileup, one file per line
+bcftools mpileup -b BAMLIST.txt -f ./PATH/TO/GENOME.fa -q 30 -Q 20 --max-BQ 40 -O z -I -a FORMAT/AD,FORMAT/SP,FORMAT/DP,FORMAT/ADF,FORMAT/ADR | \
+bcftools call -O z -v -m -a GQ,GP -o ./VCF.vcf.gz
+
+## removing the INFO/DP field so filtering works ok
+bcftools annotate -x INFO/DP -o VCF.rehead.vcf.gz -O z VCF.vcf.gz
+
+## filtering
+bcftools view -i 'DP > 10 & DP < 100 & GQ > 20 & QUAL > 30 & F_MISSING < 0.99 & AC > 0 & FS < 60 & (DP4[2] + DP4[3]) > 0 & (DP4[2] / (DP4[2] + DP4[3])) > 0.2 & (DP4[2] / (DP4[2] + DP4[3])) < 0.8' -o filtered_VCF.vcf.gz VCF.rehead.vcf.gz 
+bcftools index -t filtered_VCF.vcf.gz
