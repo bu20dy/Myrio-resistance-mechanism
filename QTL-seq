@@ -1,0 +1,36 @@
+# QTL seq
+## as opposed to the past steps, QTL-seq needs to be run in Python, not Bash
+## here, I have already created a Python environment with QTL-seq (https://github.com/YuSugihara/QTL-seq)
+
+source ~/.bashrc
+mamba  activate qtlseq-env
+
+##  options:
+##    -h, --help            Show this help message and exit
+##    -v , --vcf            VCF file which contains parent, bulk1, and bulk2 in this order. This VCF file must have AD field.
+##    -n1 , --N-bulk1       Number of individuals in bulk 1.
+##    -n2 , --N-bulk2       Number of individuals in bulk 2.
+##    -o , --out            Output directory. The specified directory can already exist.
+##    -F , --filial         Filial generation. This parameter must be greater than 1. [2]
+##    -t , --threads        Number of threads. If a value less than 1 is specified, QTL-seq will use the maximum available threads. [2]
+##    -w , --window         Window size (kb). [2000]
+##    -s , --step           Step size (kb). [100]
+##    -D , --max-depth      Maximum depth of variants to be used. [250]
+##    -d , --min-depth      Minimum depth of variants to be used. [8]
+##    -N , --N-rep          Number of replicates for simulations to generate null distribution. [5000]
+##    -m , --min-SNPindex   Cutoff of minimum SNP-index for clear results. [0.3]
+##    -S , --strand-bias    Filter out spurious homozygous genotypes in the cultivar based on strand bias. If ADF (or ADR) is higher than this cutoff when ADR (or ADF) is 0, that SNP will be filtered out. If you want to disable this filtering, set this cutoff to 0. [7]
+##    -e , --snpEff         Predict causal variants using SnpEff. Check available databases in SnpEff.
+##    --igv                 Output IGV format file to check results on IGV.
+##    --indel               Plot SNP-index with INDEL.
+##    --line-colors         Colors for threshold lines in plots. Specify a comma-separated list in the order of SNP-index, p95, and p99. ["#C3310F,#009E72,#FDB003"]
+##    --dot-colors          Colors for dots in plots. Specify a comma-separated list in the order of bulk1, bulk2, and delta. ["#74D3AE,#FFBE0B,#B3B8DD"]
+##    --fig-width           Width allocated in chromosome figure. [7.5]
+##    --fig-height          Height allocated in chromosome figure. [4.0]
+##    --white-space         White space between figures. (This option only affects vertical direction.) [0.6]
+##    -f , --format         Specify the format of an output image. eps/jpeg/jpg/pdf/pgf/png/rgba/svg/svgz/tif/tiff
+##    --version             Show program's version number and exit
+
+cd ~/PATH/TO/VCF
+
+qtlplot -v filtered_VCF.vcf.gz -n1 10 -n2 10 -s 10 -d 20 -D 250 -S 0 --dot-colors "#FFBE0B,#74D3AE,#B3B8DD" -o ./QTLSEQ/RESULTS
