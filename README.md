@@ -6,7 +6,9 @@ Code to accompany Hannay _et al_ 2025 "Trait mapping utilizing a newly construct
 Section 2.7
 - fq-processing
 - variant-calling
+
 Section 2.8
 - CG analysis script
+
 Section 2.9
 - QTL-seq
