@@ -1,0 +1,352 @@
+---
+title: "CG EXP 1&3"
+author: "Del"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# data load in
+```{r eval=F}
+setwd("C:/Users/Admin/OneDrive - Montana State University/USACE/PDS project")
+garden3 <- read.csv("ddcq3.csv")
+garden1 <- read.csv("ddcq1.csv")
+```
+# packages
+```{r eval=F}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(lmerTest)
+library(lme4)
+library(emmeans)
+```
+# common garden experiment 1
+## define factors
+```{r eval=F}
+# ensures factor variables are being ID'ed correctly
+garden1$Genotype <- as.factor(garden1$Genotype)
+garden1$Tank <- as.factor(garden1$Tank)
+garden1$Treatment <- as.factor(garden1$Treatment)
+```
+## summary stats
+```{r}
+garden1 %>%
+  group_by(Genotype, Treatment) %>%
+  get_summary_stats(average_fc, type = "mean_sd")
+# removing outliers
+outliers <- c(19,21)
+garden1a <- garden1[-outliers,]
+garden1a %>%
+  group_by(Genotype, Treatment) %>%
+  get_summary_stats(average_fc, type = "mean_sd")
+```
+## normality tests
+```{r}
+##I can't ask these tests to log transform my data, so I'll do it for them
+garden1$log <- log2(garden1$average_fc)
+garden1a$log <- log2(garden1a$average_fc)
+
+##I use my dataset with 2 outliers removed for all below tests
+# shapiro-wilk test: dependent variable(s) is normally distributed within your independent variable groups
+# assumption is true with p > 0.05
+garden1a %>%
+  group_by(Genotype, Treatment) %>%
+  shapiro_test(log)
+##M457 fluridone is the only one not normally distributed at alpha 0.05
+
+# qqplot - continued normality check - essentially a more fancy res v fitted plot
+ggqqplot(garden1a, "log", ggtheme = theme_bw()) +
+  facet_grid(Genotype ~ Treatment)
+
+# homogeneity of variance assumption of between-subject factor (Genotype)
+# assumption is true with p > 0.05
+garden1a %>%
+  group_by(Genotype) %>%
+  levene_test(log ~ Treatment)
+##townline is close, but homogeneity can be assumed to be equal
+
+# homogeneity of co-variances assumption of between-subject factor (Genotype)
+  # highly sensitive to unequal sample sizes, so may not be applicable
+box_m(garden1a[, "log", drop=F], garden1a$Genotype)
+##covariance matrices across genotypes can be assumed to be equal
+
+# repeated measures model
+# checking whether there is significant differences in FC due to a random tank effect
+tank1 <- aov(log ~ Tank, data=garden1a)
+summary(tank1)
+##there is a significant tank effect at 0.1 alpha, indicating its importance as a random variable in the model
+```
+
+## model
+```{r}
+# ANOVA
+mod1 <- lmer(log2(average_fc) ~ Treatment * Genotype + (1|Tank), data = garden1)
+plot(mod1) 
+anova(mod1)
+emmeans(mod1, ~ Treatment | Genotype)
+
+# pulling out residuals can help identify where your outliers are, if any, and what is most influential on your model
+res1 <- resid(mod1,scale=T)
+rows1 <- rownames(garden1)
+res1_df <- data.frame(res=res1, rows=rows1)
+ggplot(res1_df, aes(x = rows1, y = res1)) +
+  geom_point() +
+  geom_text(aes(label = rows), vjust = -0.5, hjust = 0.5) +
+  labs(title = "Residuals Plot", x = "Index", y = "Residuals") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+# for exp 1, there are 2 points, rows 19 and 21, that are farther out than the others, so I will remove them
+
+# rerun analysis without outliers
+mod1a <- lmer(log2(average_fc) ~ Genotype * Treatment + (1|Tank), data = garden1a)
+plot(mod1a) 
+anova(mod1a)
+
+# effects plot
+plot(allEffects(mod1a))
+```
+## unpaired two sample t-test
+```{r}
+##while less statistically powerful and more prone to Type I error (rejection of null when it is true), this is another way to look at pairwise comparisons on their own
+##especially since some of the assumptions of the ANOVA are not entirely met
+#note: townline's test includes its outliers, because t-test requires equal groups
+# lansing
+exp1lc <- subset(garden1a, Genotype=="Lansing" & Treatment=="control")
+exp1lf <- subset(garden1a, Genotype=="Lansing" & Treatment=="fluridone")
+t.test(x=exp1lc$log, y=exp1lf$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+# townline
+exp1tc <- subset(garden1a, Genotype=="Townline" & Treatment=="control")
+exp1tf <- subset(garden1a, Genotype=="Townline" & Treatment=="fluridone")
+t.test(x=exp1tc$log, y=exp1tf$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+# lansing & townline to M457
+exp1mc <- subset(garden1a, Genotype=="M457" & Treatment=="control")
+t.test(x=exp1mc$log, y=exp1lc$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+t.test(x=exp1mc$log, y=exp1tc$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+```
+
+## plots
+```{r}
+# average
+ggplot(garden1, aes(x=Genotype, y=log2(average_fc), color=Treatment)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(-3,3)) +
+  theme_bw() +
+  ggtitle("Experiment 1: Growth Room Cattle Tanks") +
+  labs(y="Average PDS Fold Change") +
+  geom_hline(yintercept=c(1,-1), linetype="dashed", color="black")
+```
+# common garden experiment 3
+## define factors
+ensures factor variables are being ID'ed that way
+```{r eval=F}
+garden3$Genotype <- as.factor(garden3$Genotype)
+garden3$Tank <- as.factor(garden3$Tank)
+garden3$Treatment <- as.factor(garden3$Treatment)
+```
+## summary stats
+```{r}
+garden3 %>%
+  group_by(Genotype, Treatment) %>%
+  get_summary_stats(average_fc, type = "mean_sd")
+```
+## normality tests
+```{r}
+##I can't ask these tests to log transform my data, so I'll do it for them
+garden3$log <- log2(garden3$average_fc)
+
+# assumption is true with p > 0.05
+garden3 %>%
+  group_by(Genotype, Treatment) %>%
+  shapiro_test(log)
+##met when transformed
+
+# qqplot - continued normality check
+ggqqplot(garden3, "log", ggtheme = theme_bw()) +
+  facet_grid(Genotype ~ Treatment)
+##low left-tails of Lansing and Townline fluridone
+
+#homogeneity of variance assumption of between-subject factor (Genotype)
+  #(assumption is true with p > 0.05)
+garden3 %>%
+  group_by(Genotype) %>%
+  levene_test(log ~ Treatment)
+
+#homogeneity of co-variances assumption of between-subject factor (Genotype)
+  #highly sensitive to unequal sample sizes, so may not be applicable
+box_m(garden3[, "log", drop=F], garden3$Genotype)
+
+#repeated measures model
+#checking whether there is significant differences in FC due to a random tank effect
+tank3 <- aov(log ~ Tank, data=garden3)
+summary(tank3)
+##tanks are equal
+```
+## model
+```{r}
+# ANOVA
+mod3 <- lmer(log2(average_fc) ~ Genotype * Treatment + (1|Tank), data = garden3)
+plot(mod3) 
+anova(mod3)
+emmeans(mod3, ~ Treatment | Genotype)
+
+res3 <- resid(mod3,scale=T)
+rows3 <- rownames(garden3)
+res3_df <- data.frame(res=res3, rows=rows3)
+ggplot(res3_df, aes(x = rows3, y = res3)) +
+  geom_point() +
+  geom_text(aes(label = rows), vjust = -0.5, hjust = 0.5) +
+  labs(title = "Residuals Plot", x = "Index", y = "Residuals") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+# exp 3's residuals looks to be pretty even within treatment and genotype
+# without log transform, there is clear tunneling of the residuals
+
+# effects plot
+plot(allEffects(mod3))
+```
+## unpaired two sample t-test
+```{r}
+# lansing
+exp3lc <- subset(garden3, Genotype=="Lansing" & Treatment=="control")
+exp3lf <- subset(garden3, Genotype=="Lansing" & Treatment=="fluridone")
+t.test(x=exp3lc$log, y=exp3lf$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+# townline
+exp3tc <- subset(garden3, Genotype=="Townline" & Treatment=="control")
+exp3tf <- subset(garden3, Genotype=="Townline" & Treatment=="fluridone")
+t.test(x=exp3tc$log, y=exp3tf$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+# lansing & townline to M457
+exp3m <- subset(garden3, Genotype=="M457")
+exp3mc <- subset(garden3, Genotype=="M457" & Treatment=="control")
+t.test(x=exp3mc$log, y=exp3lc$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+t.test(x=exp3mc$log, y=exp3tc$log, alternative="greater", paired=F, var.equal=T, conf.level=0.95)
+```
+## plots
+```{r}
+# average
+ggplot(garden3, aes(x=Genotype, y=log2(average_fc), color=Treatment)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(-3,3)) +
+  theme_bw() +
+  ggtitle("Experiment 3: Greenhouse 2 Pickle Barrels") +
+  labs(y="Average PDS Fold Change") +
+  geom_hline(yintercept=c(1,-1), linetype="dashed", color="black")
+
+# ranked
+ggplot(garden3, aes(x=Genotype, y=log2(ranked_fc), color=Treatment)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(-3,3)) +
+  theme_bw() +
+  ggtitle("Experiment 1: Greenhouse 2 Pickle Barrels") +
+  labs(y="Ranked PDS Fold Change", x="Genotype") +
+  geom_hline(yintercept=c(1,-1), linetype="dashed", color="red")
+```
+# combined dataset
+```{r}
+garden1$block <- "1"
+garden3$block <- "3"
+garden <- rbind(garden1,garden3)
+garden %>%
+  group_by(Genotype, Treatment) %>%
+  get_summary_stats(average_fc, type = "mean_sd")
+```
+## normality tests
+```{r}
+##I can't ask these tests to log transform my data, so I'll do it for them
+garden$log <- log2(garden$average_fc)
+
+# shapiro-wilk test: dependent variable(s) is normally distributed within your independent variable groups
+# assumption is true with p > 0.05
+garden %>%
+  group_by(Genotype, Treatment) %>%
+  shapiro_test(log)
+##all good
+
+# qqplot - continued normality check - essentially a more fancy res v fitted plot
+ggqqplot(garden, "log", ggtheme = theme_bw()) +
+  facet_grid(Genotype ~ Treatment)
+
+# homogeneity of variance assumption of between-subject factor (Genotype)
+# assumption is true with p > 0.05
+garden %>%
+  group_by(Genotype) %>%
+  levene_test(log ~ Treatment)
+##all good
+
+# homogeneity of co-variances assumption of between-subject factor (Genotype)
+  # highly sensitive to unequal sample sizes, so may not be applicable
+box_m(garden[, "log", drop=F], garden$Genotype)
+##covariance matrices across genotypes are NOT equal (pvalue=0.002)
+
+# repeated measures model
+# checking whether there is significant differences in FC due to a random block effect
+block <- aov(log ~ block, data=garden)
+summary(block)
+```
+## ANOVA
+```{r}
+subset <- subset(garden, Genotype=="Lansing" | Genotype=="M457")
+# ANOVA
+mod <- lmer(log2(average_fc) ~ Genotype * Treatment + (1|Tank) + (1|block), data = subset)
+plot(mod) 
+anova(mod)
+emmeans(mod, ~ Treatment | Genotype)
+
+res <- resid(mod,scale=T)
+rows <- rownames(garden)
+res_df <- data.frame(res=res, rows=rows)
+ggplot(res_df, aes(x = rows, y = res)) +
+  geom_point() +
+  geom_text(aes(label = rows), vjust = -0.5, hjust = 0.5) +
+  labs(title = "Residuals Plot", x = "Index", y = "Residuals") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+# exp1 townline controls 19 and 21 still are far out on residuals
+
+# effects plot
+plot(allEffects(mod))
+```
+## plots
+```{r}
+# average
+ggplot(garden, aes(x=Genotype, y=log2(average_fc), color=Treatment)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(-3,3)) +
+  theme_bw() +
+  labs(y="Average PDS Fold Change") +
+  geom_hline(yintercept=c(1,-1), linetype="dashed", color="black") +
+  scale_x_discrete(labels=c("E_MISGP_380","H_MYR_11345","H_MISGP_249"))
+
+# ranked
+ggplot(garden, aes(x=Genotype, y=log2(ranked_fc), color=Treatment)) +
+  geom_boxplot() +
+  scale_y_continuous(limits=c(-3,3)) +
+  theme_bw() +
+  labs(y="Ranked PDS Fold Change", x="Genotype") +
+  geom_hline(yintercept=c(1,-1), linetype="dashed", color="black")
+```
+
+# post-hoc tests
+```{r}
+# power of analysis for Lansing C v M457 C
+Group_D <- subset(garden, Genotype=="LANSING" & Treatment=="Control",
+                  select="fold.change")
+Group_D <- as.numeric(Group_D$fold.change)
+Group_E <- subset(garden, Genotype=="M457" & Treatment=="Control",
+                  select="fold.change")
+Group_E <- as.numeric(Group_E$fold.change)
+# Welch Two Sample t-test
+twel <- t.test(Group_D, Group_E, alternative=c("greater"))
+pwel <- twel$p.value
+cd <- cohen.d(Group_D, Group_E, na.rm=T)
+pwr.t2n.test(n1 = 13, n2= 11, d = cd$estimate, sig.level = pwel, power = NULL, 
+             alternative = c("greater"))
+# IS THE MEAN OF GROUP 1 GREATER THAN THE MEAN OF GROUP 2
+
+# power of analysis for Townline C v M457 C
+Group_F <- subset(garden, Genotype=="TOWNLINE" & Treatment=="Control",
+                  select="fold.change")
+Group_F <- as.numeric(Group_F$fold.change)
+# Welch Two Sample t-test
+twel <- t.test(Group_F, Group_E, alternative=c("greater"))
+pwel <- twel$p.value
+cd <- cohen.d(Group_F, Group_E, na.rm=T)
+pwr.t2n.test(n1 = 12, n2= 11, d = cd$estimate, sig.level = pwel, power = NULL, 
+             alternative = c("greater"))
+# IS THE MEAN OF GROUP 1 GREATER THAN THE MEAN OF GROUP 2
+```
