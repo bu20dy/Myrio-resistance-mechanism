@@ -1,12 +1,12 @@
 ---
 title: "CG EXP 1&3"
-author: "Del"
+author: "Del P. Hannay"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 # data load in
 ```{r eval=F}
-setwd("C:/Users/Admin/OneDrive - Montana State University/USACE/PDS project")
+setwd("PATH/TO/FILES")
 garden3 <- read.csv("ddcq3.csv")
 garden1 <- read.csv("ddcq1.csv")
 ```
@@ -41,7 +41,7 @@ garden1a %>%
 ```
 ## normality tests
 ```{r}
-##I can't ask these tests to log transform my data, so I'll do it for them
+##log2 transform
 garden1$log <- log2(garden1$average_fc)
 garden1a$log <- log2(garden1a$average_fc)
 
@@ -350,3 +350,4 @@ pwr.t2n.test(n1 = 12, n2= 11, d = cd$estimate, sig.level = pwel, power = NULL,
              alternative = c("greater"))
 # IS THE MEAN OF GROUP 1 GREATER THAN THE MEAN OF GROUP 2
 ```
+
