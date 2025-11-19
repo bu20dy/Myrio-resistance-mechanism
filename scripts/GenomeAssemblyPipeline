@@ -1,0 +1,56 @@
+## Watermilfoil Genome Assembly
+
+# Check HiFi sequence quality for each run.
+
+pauvre stats -H --fastq ../../Myriophyllum/PacBio/m64040_221019_193543.ccs.fastq
+
+# Run hifiasm to assemble the PacBio HiFi reads into a scaffold.
+
+hifiasm -o Myriohyllyum.hic.hap2.p_ctg.asm -t 35 --h1 <path to Omni-C Illumina R1.fastq> --h2 <path to Omni-C Illumina R2.fastq> <path to PacBio HiFi .fastq>
+
+# Run YaHS to see contact between DNA in the scaffold.
+# First, index the (.fa) scaffold file from hifiasm.
+
+bwa index -a bwtsw milfoil_haps/haps/Myriohyllyum.hic.hap2.p_ctg.fa
+
+# Also, index with samtools.
+
+samtools faidx milfoil_haps/haps/Myriohyllyum.hic.hap2.p_ctg.fa
+
+# Then, align Illumina Omni-C reads to the hifiasm scaffold.
+
+bwa mem -5SP -t 50 milfoil_haps/haps/Myriohyllyum.hic.hap2.p_ctg.fa Myriophyllum/Illumina/JZZL_OmniC_NA_NA_GAGACGAT_Myriophyllum_spicatum_OmniC-Myriophyllum_spicatum_OmniC_I1251_L1_R1.fastq Myriophyllum/Illumina/JZZL_OmniC_NA_NA_GAGACGAT_Myriophyllum_spicatum_OmniC-Myriophyllum_spicatum_OmniC_I1251_L1_R2.fastq > milfoil_hap2.sam
+
+# Convert the .sam to .bam with samtools.
+
+samtools view -S -h -b -F 2316 > milfoil_hap2.bam
+
+# Then, run YaHS.
+
+yahs Myriohyllyum.hic.hap2.p_ctg.fa milfoil_hap2.bam
+
+# Next, to visualize contact points and manually edit the assembly we used Juicer. 
+
+juicer pre -a -o milfoil yahs.out.bin yahs.out_scaffolds_final.agp Myriohyllyum.hic.hap2.p_ctg.fa.fai > milfoil_hap2.log 2>&1 
+java -Xmx600G -jar ../../programs/juicer_tools_1.22.01.jar pre milfoil.txt milfoil_hap2.hic <(echo "assembly 745327205")
+juicer post -o milfoil_hap2_JBAT_3 milfoil_hap2.GC2.review.assembly milfoil.liftover.agp Myriohyllyum.hic.hap2.p_ctg.fa
+
+# Next, remove contaminant reads from the assmbly and generate a report of contaminants found using FCS-GX.
+
+cat ./milfoil_haps/haps/milfoil_hap2_JBAT_3.FINAL.fa | python3 ./fcs.py clean genome --action-report ./gx_out/milfoil_hap2_JBAT_3.FINAL.208873.fcs_gx_report.txt --output milfoil_hap2_JBAT3_clean.fasta --contam-fasta-out contam.fasta
+
+# Then, annotate and mask repeat regions of the genome using EDTA (we used a previously assembled de novo transcriptome to aid this).
+
+perl EDTA.pl --genome ../../milfoil_hap2_JBAT3_clean.fasta --cds ../../ewmTrinity.fasta --overwrite 1 --sensitive 1 --anno 1 --evaluate 1 --threads 100
+
+# Use BRAKER3 to annotate the repeat masked genome.
+
+singularity exec -B ${PWD}:${PWD} ${BRAKER_SIF} braker.pl --genome=milfoil_hap2_JBAT3_clean.fa.mod.MAKER.masked --prot_seq=Eukaryota.fa --bam=L734_10_S71.sam.bam,L734_1_S7.sam.bam,L734_4_S23.sam.bam,L734_6_S39.sam.bam,L734_8_S55.sam.bam,L734_12_S79.sam.bam,L734_2_S15.sam.bam,L734_5_S31.sam.bam,L734_7_S47.sam.bam,L734_9_S63.sam.bam --workingdir=${wd} \
+	    --threads 40 --busco_lineage eukaryota_odb10 &> braker_out.log
+
+
+
+
+
+
+
