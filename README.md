@@ -3,7 +3,7 @@
 Code to accompany Hannay _et al_ 2025 "Trait mapping utilizing a newly constructed genome for allohexaploid invasive Eurasian watermilfoil (_Myriophyllum spicatum_) reveals a non-target site QTL associated with fluridone resistance"
 
 ## Sections of the methodology and where code was used
-Section 2.x
+Section 2.2 & 2.4
 - [GenomeAssemblyPipeline](https://github.com/bu20dy/Myrio-resistance-mechanism/blob/main/scripts/GenomeAssemblyPipeline)
 
 Section 2.7
