@@ -1,6 +1,6 @@
 # Myrio-resistance-mechanism
 
-Code to accompany Hannay _et al_ 2025 "Trait mapping utilizing a newly constructed genome for allohexaploid invasive Eurasian watermilfoil (_Myriophyllum spicatum_) reveals a non-target site QTL associated with fluridone resistance"
+Code to accompany Hannay _et al_ 2026 "Trait mapping utilizing a newly constructed genome for allohexaploid invasive Eurasian watermilfoil (_Myriophyllum spicatum_) reveals a non-target site QTL associated with fluridone resistance" in _Evolutionary Applications_
 
 ## Sections of the methodology and where code was used
 Section 2.2 & 2.4
